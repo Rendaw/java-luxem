@@ -26,10 +26,10 @@ import java.util.stream.Collectors;
 import static com.zarbosoft.rendaw.common.Common.uncheck;
 
 public class ReadTypeGrammar {
-	public static <T> Grammar buildGrammar(final Reflections reflections, final Class<T> outputClass) {
+	public static Grammar buildGrammar(final Reflections reflections, final Walk.TypeInfo root) {
 		final HashSet<Type> seen = new HashSet<>();
 		final Grammar grammar = new Grammar();
-		grammar.add("root", Walk.walk(reflections, outputClass, new Walk.Visitor<Node>() {
+		grammar.add("root", new Union().add(Walk.walk(reflections, root, new Walk.Visitor<>() {
 			@Override
 			public Node visitString(final Field field) {
 				return new BakedOperator(new Terminal(new LPrimitiveEvent(null)), s -> {
@@ -218,7 +218,7 @@ public class ReadTypeGrammar {
 				}));
 				return new Reference(klass.getTypeName());
 			}
-		}));
+		})).add(new BakedOperator(store -> store.pushStack(null))));
 		return grammar;
 	}
 

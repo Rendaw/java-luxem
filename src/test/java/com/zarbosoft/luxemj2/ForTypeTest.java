@@ -13,7 +13,7 @@ public class ForTypeTest {
 	public static Reflections reflections = new Reflections("com.zarbosoft.luxemj2");
 
 	private void check(final Class<?> k, final String source, final Object expected) {
-		final Object got = Luxem.parse(reflections, k, source);
+		final Object got = Luxem.parse(reflections, k, source).findFirst().get();
 		assertReflectionEquals(expected, got);
 	}
 

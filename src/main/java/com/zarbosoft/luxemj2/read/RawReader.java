@@ -1,9 +1,10 @@
 package com.zarbosoft.luxemj2.read;
 
-import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayDeque;
 import java.util.Deque;
+
+import static com.zarbosoft.rendaw.common.Common.uncheck;
 
 public class RawReader {
 	@FunctionalInterface
@@ -56,14 +57,44 @@ public class RawReader {
 		stack.addLast(new RootArray());
 	}
 
-	public static void feed(final RawReader reader, final InputStream source) throws IOException {
+	public static void feed(final RawReader reader, final InputStream source) {
 		final byte[] buffer = new byte[1024];
 		int length;
-		while ((length = source.read(buffer)) != -1) {
+		while ((length = uncheck(() -> source.read(buffer))) != -1) {
 			for (int i = 0; i < length; ++i)
 				reader.eat(buffer[i]);
 		}
 		reader.finish();
+	}
+
+	public static Feeder feeder(final RawReader reader, final InputStream source) {
+		return new Feeder(reader, source);
+	}
+
+	public static class Feeder {
+
+		private final RawReader reader;
+		private final InputStream source;
+		private final byte[] buffer;
+
+		public Feeder(final RawReader reader, final InputStream source) {
+			this.reader = reader;
+			this.source = source;
+			this.buffer = new byte[1024];
+		}
+
+		public boolean feed() {
+			final int length = uncheck(() -> source.read(buffer));
+			if (length == -1)
+				return false;
+			for (int i = 0; i < length; ++i)
+				reader.eat(buffer[i]);
+			return true;
+		}
+
+		public void finish() {
+			reader.finish();
+		}
 	}
 
 	private void finish() {

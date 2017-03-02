@@ -15,8 +15,7 @@ import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
-
-import static com.zarbosoft.rendaw.common.Common.uncheck;
+import java.util.stream.Stream;
 
 public class Parse<O> extends BaseParse<Parse<O>> {
 
@@ -43,12 +42,12 @@ public class Parse<O> extends BaseParse<Parse<O>> {
 		return out;
 	}
 
-	public O parse(final String string) {
+	public Stream<O> parse(final String string) {
 		return parse(new ByteArrayInputStream(string.getBytes(StandardCharsets.UTF_8)));
 	}
 
-	public O parse(final InputStream stream) {
-		final Pair<EventStream<O>, LuxemPath> state = new Pair<>(new com.zarbosoft.pidgoon.events.Parse<O>()
+	private EventStream<O> createStream() {
+		return new com.zarbosoft.pidgoon.events.Parse<O>()
 				.grammar(grammar)
 				.node(node)
 				.stack(initialStack)
@@ -56,7 +55,11 @@ public class Parse<O> extends BaseParse<Parse<O>> {
 				.dumpAmbiguity(dumpAmbiguity)
 				.uncertainty(eventUncertainty)
 				.callbacks((Map<String, Callback>) (Object) callbacks)
-				.parse(), new LuxemArrayPath(null));
+				.parse();
+	}
+
+	public Stream<O> parse(final InputStream stream) {
+		final Pair<EventStream<O>, LuxemPath> state = new Pair<>(createStream(), new LuxemArrayPath(null));
 		final BufferedRawReader reader = new BufferedRawReader();
 		reader.eatRecordBegin = wrap(state, () -> new LObjectOpenEvent());
 		reader.eatRecordEnd = wrap(state, () -> new LObjectCloseEvent());
@@ -65,8 +68,20 @@ public class Parse<O> extends BaseParse<Parse<O>> {
 		reader.eatKey = wrapBytes(state, s -> new LKeyEvent(s));
 		reader.eatType = wrapBytes(state, s -> new LTypeEvent(s));
 		reader.eatPrimitive = wrapBytes(state, s -> new LPrimitiveEvent(s));
-		uncheck(() -> RawReader.feed(reader, stream));
-		return state.first.finish();
+		final RawReader.Feeder feeder = RawReader.feeder(reader, stream);
+		return Stream.generate(() -> {
+			boolean foodRemains = true;
+			while (!state.first.ended() && (foodRemains = feeder.feed())) {
+			}
+			if (!foodRemains)
+				feeder.finish();
+			final O out = state.first.finish();
+			if (foodRemains)
+				state.first = createStream();
+			else
+				state.first = null;
+			return out;
+		}).takeWhile(o -> o != null);
 	}
 
 	private static <O> Runnable wrap(final Pair<EventStream<O>, LuxemPath> state, final Supplier<LuxemEvent> supplier) {

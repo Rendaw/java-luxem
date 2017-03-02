@@ -1,8 +1,8 @@
-package com.zarbosoft.luxemj2.read;
+package com.zarbosoft.luxem.read;
 
-import com.zarbosoft.luxemj2.read.path.LuxemArrayPath;
-import com.zarbosoft.luxemj2.read.path.LuxemPath;
-import com.zarbosoft.luxemj2.read.source.*;
+import com.zarbosoft.luxem.read.path.LuxemArrayPath;
+import com.zarbosoft.luxem.read.path.LuxemPath;
+import com.zarbosoft.luxem.read.source.*;
 import com.zarbosoft.pidgoon.bytes.Callback;
 import com.zarbosoft.pidgoon.events.EventStream;
 import com.zarbosoft.pidgoon.internal.BaseParse;

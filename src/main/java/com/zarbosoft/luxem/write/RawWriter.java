@@ -1,4 +1,4 @@
-package com.zarbosoft.luxemj2.write;
+package com.zarbosoft.luxem.write;
 
 import java.io.IOException;
 import java.io.OutputStream;

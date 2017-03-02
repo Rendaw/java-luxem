@@ -1,4 +1,4 @@
-package com.zarbosoft.luxemj2;
+package com.zarbosoft.luxem;
 
 import com.zarbosoft.interface1.Configuration;
 import com.zarbosoft.pidgoon.InvalidStream;
@@ -10,7 +10,7 @@ import java.util.*;
 import static org.unitils.reflectionassert.ReflectionAssert.assertReflectionEquals;
 
 public class ForTypeTest {
-	public static Reflections reflections = new Reflections("com.zarbosoft.luxemj2");
+	public static Reflections reflections = new Reflections("com.zarbosoft.luxem");
 
 	private void check(final Class<?> k, final String source, final Object expected) {
 		final Object got = Luxem.parse(reflections, k, source).findFirst().get();

@@ -1,4 +1,4 @@
-package com.zarbosoft.luxemj2.read;
+package com.zarbosoft.luxem.read;
 
 public class InvalidStream extends RuntimeException {
 

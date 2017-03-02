@@ -1,11 +1,11 @@
-package com.zarbosoft.luxemj2.read.source;
+package com.zarbosoft.luxem.read.source;
 
 import com.zarbosoft.interface1.Configuration;
-import com.zarbosoft.luxemj2.read.LuxemEvent;
+import com.zarbosoft.luxem.read.LuxemEvent;
 import com.zarbosoft.pidgoon.events.Event;
 
-@Configuration(name = "array-open")
-public class LArrayOpenEvent implements LuxemEvent {
+@Configuration(name = "object-close")
+public class LObjectCloseEvent implements LuxemEvent {
 
 	@Override
 	public boolean matches(final Event event) {
@@ -14,6 +14,6 @@ public class LArrayOpenEvent implements LuxemEvent {
 
 	@Override
 	public String toString() {
-		return String.format("[");
+		return String.format("}");
 	}
 }

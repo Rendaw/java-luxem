@@ -1,4 +1,4 @@
-package com.zarbosoft.luxemj2.read;
+package com.zarbosoft.luxem.read;
 
 import java.io.ByteArrayOutputStream;
 import java.util.function.Consumer;

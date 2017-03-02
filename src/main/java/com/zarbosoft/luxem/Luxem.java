@@ -1,8 +1,8 @@
-package com.zarbosoft.luxemj2;
+package com.zarbosoft.luxem;
 
 import com.zarbosoft.interface1.Walk;
-import com.zarbosoft.luxemj2.read.Parse;
-import com.zarbosoft.luxemj2.read.ReadTypeGrammar;
+import com.zarbosoft.luxem.read.Parse;
+import com.zarbosoft.luxem.read.ReadTypeGrammar;
 import com.zarbosoft.pidgoon.events.Grammar;
 import org.reflections.Reflections;
 

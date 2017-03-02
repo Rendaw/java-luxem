@@ -1,7 +1,7 @@
-package com.zarbosoft.luxemj2.read.source;
+package com.zarbosoft.luxem.read.source;
 
 import com.zarbosoft.interface1.Configuration;
-import com.zarbosoft.luxemj2.read.LuxemEvent;
+import com.zarbosoft.luxem.read.LuxemEvent;
 import com.zarbosoft.pidgoon.events.Event;
 
 @Configuration(name = "object-open")

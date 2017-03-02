@@ -1,4 +1,4 @@
-package com.zarbosoft.luxemj2.read;
+package com.zarbosoft.luxem.read;
 
 import com.zarbosoft.interface1.Configuration;
 import com.zarbosoft.pidgoon.events.Event;

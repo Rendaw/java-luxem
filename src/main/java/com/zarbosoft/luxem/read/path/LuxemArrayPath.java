@@ -1,4 +1,4 @@
-package com.zarbosoft.luxemj2.read.path;
+package com.zarbosoft.luxem.read.path;
 
 public class LuxemArrayPath extends LuxemPath {
 

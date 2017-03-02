@@ -1,8 +1,8 @@
-package com.zarbosoft.luxemj2.read;
+package com.zarbosoft.luxem.read;
 
 import com.zarbosoft.interface1.Configuration;
 import com.zarbosoft.interface1.Walk;
-import com.zarbosoft.luxemj2.read.source.*;
+import com.zarbosoft.luxem.read.source.*;
 import com.zarbosoft.pidgoon.AbortParse;
 import com.zarbosoft.pidgoon.events.BakedOperator;
 import com.zarbosoft.pidgoon.events.Grammar;

@@ -1,7 +1,7 @@
-package com.zarbosoft.luxemj2.read.path;
+package com.zarbosoft.luxem.read.path;
 
-import com.zarbosoft.luxemj2.read.LuxemEvent;
-import com.zarbosoft.luxemj2.read.source.*;
+import com.zarbosoft.luxem.read.LuxemEvent;
+import com.zarbosoft.luxem.read.source.*;
 
 public abstract class LuxemPath {
 

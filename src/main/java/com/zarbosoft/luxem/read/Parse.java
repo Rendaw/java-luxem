@@ -6,16 +6,20 @@ import com.zarbosoft.luxem.read.source.*;
 import com.zarbosoft.pidgoon.bytes.Callback;
 import com.zarbosoft.pidgoon.events.EventStream;
 import com.zarbosoft.pidgoon.internal.BaseParse;
-import com.zarbosoft.rendaw.common.Pair;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
+
+import static com.zarbosoft.rendaw.common.Common.drain;
+import static com.zarbosoft.rendaw.common.Common.enumerate;
 
 public class Parse<O> extends BaseParse<Parse<O>> {
 
@@ -46,60 +50,73 @@ public class Parse<O> extends BaseParse<Parse<O>> {
 		return parse(new ByteArrayInputStream(string.getBytes(StandardCharsets.UTF_8)));
 	}
 
-	private EventStream<O> createStream() {
-		return new com.zarbosoft.pidgoon.events.Parse<O>()
-				.grammar(grammar)
-				.node(node)
-				.stack(initialStack)
-				.errorHistory(errorHistoryLimit)
-				.dumpAmbiguity(dumpAmbiguity)
-				.uncertainty(eventUncertainty)
-				.callbacks((Map<String, Callback>) (Object) callbacks)
-				.parse();
-	}
-
 	public Stream<O> parse(final InputStream stream) {
-		final Pair<EventStream<O>, LuxemPath> state = new Pair<>(createStream(), new LuxemArrayPath(null));
-		final BufferedRawReader reader = new BufferedRawReader();
-		reader.eatRecordBegin = wrap(state, () -> new LObjectOpenEvent());
-		reader.eatRecordEnd = wrap(state, () -> new LObjectCloseEvent());
-		reader.eatArrayBegin = wrap(state, () -> new LArrayOpenEvent());
-		reader.eatArrayEnd = wrap(state, () -> new LArrayCloseEvent());
-		reader.eatKey = wrapBytes(state, s -> new LKeyEvent(s));
-		reader.eatType = wrapBytes(state, s -> new LTypeEvent(s));
-		reader.eatPrimitive = wrapBytes(state, s -> new LPrimitiveEvent(s));
-		final RawReader.Feeder feeder = RawReader.feeder(reader, stream);
-		return Stream.generate(() -> {
-			boolean foodRemains = true;
-			while (!state.first.ended() && (foodRemains = feeder.feed())) {
+		class State {
+			EventStream<O> stream;
+			LuxemPath path;
+			Deque<LuxemEvent> events = new ArrayDeque<>();
+
+			private void createStream() {
+				stream = new com.zarbosoft.pidgoon.events.Parse<O>()
+						.grammar(grammar)
+						.node(node)
+						.stack(initialStack)
+						.errorHistory(errorHistoryLimit)
+						.dumpAmbiguity(dumpAmbiguity)
+						.uncertainty(eventUncertainty)
+						.callbacks((Map<String, Callback>) (Object) callbacks)
+						.parse();
 			}
-			if (!foodRemains)
-				feeder.finish();
-			final O out = state.first.finish();
-			if (foodRemains)
-				state.first = createStream();
-			else
-				state.first = null;
-			return out;
-		}).takeWhile(o -> o != null);
+
+			State() {
+				this.path = new LuxemArrayPath(null);
+				createStream();
+			}
+
+			<O> Runnable wrap(final Supplier<LuxemEvent> supplier) {
+				return () -> {
+					events.addLast(supplier.get());
+				};
+			}
+
+			<O> Consumer<byte[]> wrapBytes(
+					final Function<String, LuxemEvent> supplier
+			) {
+				return bytes -> {
+					final String string = new String(bytes, StandardCharsets.UTF_8);
+					final LuxemEvent e = supplier.apply(string);
+					events.addLast(e);
+				};
+			}
+
+			public void handleEvent(final LuxemEvent e) {
+				stream = stream.push(e, path.toString());
+				path = path.push(e);
+			}
+		}
+		final State state = new State();
+		final BufferedRawReader reader = new BufferedRawReader();
+		reader.eatRecordBegin = state.wrap(() -> new LObjectOpenEvent());
+		reader.eatRecordEnd = state.wrap(() -> new LObjectCloseEvent());
+		reader.eatArrayBegin = state.wrap(() -> new LArrayOpenEvent());
+		reader.eatArrayEnd = state.wrap(() -> new LArrayCloseEvent());
+		reader.eatKey = state.wrapBytes(s -> new LKeyEvent(s));
+		reader.eatType = state.wrapBytes(s -> new LTypeEvent(s));
+		reader.eatPrimitive = state.wrapBytes(s -> new LPrimitiveEvent(s));
+		return RawReader.stream(reader, stream).flatMap(last -> {
+			return enumerate(drain(state.events)).map(pair -> {
+				int i = pair.first;
+				state.handleEvent(pair.second);
+				if (state.stream.ended()) {
+					O result = state.stream.finish();
+					state.createStream();
+					return result;
+				} else if (i == state.events.size() - 1 && last) {
+					throw new InvalidStream("Input stream ended mid-element.");
+				} else
+					return null;
+			}).filter(o -> o != null);
+		});
 	}
 
-	private static <O> Runnable wrap(final Pair<EventStream<O>, LuxemPath> state, final Supplier<LuxemEvent> supplier) {
-		return () -> {
-			final LuxemEvent e = supplier.get();
-			state.first = state.first.push(e, state.second.toString());
-			state.second = state.second.push(e);
-		};
-	}
-
-	private static <O> Consumer<byte[]> wrapBytes(
-			final Pair<EventStream<O>, LuxemPath> state, final Function<String, LuxemEvent> supplier
-	) {
-		return bytes -> {
-			final String string = new String(bytes, StandardCharsets.UTF_8);
-			final LuxemEvent e = supplier.apply(string);
-			state.first = state.first.push(e, state.second.toString());
-			state.second = state.second.push(e);
-		};
-	}
 }

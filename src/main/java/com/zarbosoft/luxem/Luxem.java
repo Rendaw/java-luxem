@@ -3,11 +3,13 @@ package com.zarbosoft.luxem;
 import com.zarbosoft.interface1.Walk;
 import com.zarbosoft.luxem.read.Parse;
 import com.zarbosoft.luxem.read.ReadTypeGrammar;
+import com.zarbosoft.luxem.write.TypeWriter;
 import com.zarbosoft.pidgoon.events.Grammar;
 import org.reflections.Reflections;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
@@ -43,4 +45,11 @@ public class Luxem {
 		return new Parse<T>().grammar(grammar).errorHistory(5).parse(data);
 	}
 
+	public static void write(final Object root, final OutputStream data) {
+		write(root.getClass(), root, data);
+	}
+
+	public static void write(final Class<?> rootType, final Object root, final OutputStream data) {
+		new TypeWriter(data).write(rootType, root);
+	}
 }

@@ -1,10 +1,11 @@
 package com.zarbosoft.luxem.read;
 
+import com.zarbosoft.rendaw.common.Common;
+
 import java.io.InputStream;
 import java.util.ArrayDeque;
 import java.util.Deque;
-
-import static com.zarbosoft.rendaw.common.Common.uncheck;
+import java.util.stream.Stream;
 
 public class RawReader {
 	@FunctionalInterface
@@ -57,51 +58,25 @@ public class RawReader {
 		stack.addLast(new RootArray());
 	}
 
-	public static void feed(final RawReader reader, final InputStream source) {
-		final byte[] buffer = new byte[1024];
-		int length;
-		while ((length = uncheck(() -> source.read(buffer))) != -1) {
-			for (int i = 0; i < length; ++i)
-				reader.eat(buffer[i]);
-		}
-		reader.finish();
-	}
-
-	public static Feeder feeder(final RawReader reader, final InputStream source) {
-		return new Feeder(reader, source);
-	}
-
-	public static class Feeder {
-
-		private final RawReader reader;
-		private final InputStream source;
-		private final byte[] buffer;
-
-		public Feeder(final RawReader reader, final InputStream source) {
-			this.reader = reader;
-			this.source = source;
-			this.buffer = new byte[1024];
-		}
-
-		public boolean feed() {
-			final int length = uncheck(() -> source.read(buffer));
-			if (length == -1)
-				return false;
-			for (int i = 0; i < length; ++i)
-				reader.eat(buffer[i]);
-			return true;
-		}
-
-		public void finish() {
-			reader.finish();
-		}
-	}
-
 	private void finish() {
 		if (stack.size() > 2)
 			throw new InvalidStream("End reached mid-element.");
 		if (stack.size() == 2)
 			stack.peekLast().finish(this);
+	}
+
+	public static Stream<Boolean> stream(final RawReader reader, final InputStream source) {
+		return Common.concatNull(Common.stream(source)).map(bytes -> {
+			if (bytes == null) {
+				// Post-last chunk
+				reader.finish();
+				return true;
+			} else {
+				for (final byte b : bytes)
+					reader.eat(b);
+				return false;
+			}
+		});
 	}
 
 	public void eat(final byte next) {

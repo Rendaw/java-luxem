@@ -23,6 +23,14 @@ public class ForTypeTest {
 	}
 
 	@Test
+	public void testRootArray() {
+		final String[] got = (String[]) Luxem
+				.parse(reflections, String.class, "\"l2:food\",\"online\",\"l1:expense\",")
+				.toArray(String[]::new);
+		assertReflectionEquals(new String[] {"l2:food", "online", "l1:expense"}, got);
+	}
+
+	@Test
 	public void testStringNewlineSymbol() {
 		check(String.class, "\"d\\nog\"", "d\nog");
 	}

@@ -29,7 +29,7 @@ public class ReadTypeGrammar {
 	public static Grammar buildGrammar(final Reflections reflections, final Walk.TypeInfo root) {
 		final HashSet<Type> seen = new HashSet<>();
 		final Grammar grammar = new Grammar();
-		grammar.add("root", new Union().add(Walk.walk(reflections, root, new Walk.Visitor<>() {
+		grammar.add("root", new Union().add(Walk.walk(reflections, root, new Walk.Visitor<Node>() {
 			@Override
 			public Node visitString(final Field field) {
 				return new BakedOperator(new Terminal(new LPrimitiveEvent(null)), s -> {

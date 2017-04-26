@@ -1,11 +1,18 @@
 package com.zarbosoft.luxem.read;
 
+import com.zarbosoft.luxem.read.source.*;
 import com.zarbosoft.rendaw.common.Common;
 
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
+
+import static com.zarbosoft.rendaw.common.Common.drain;
 
 public class RawReader {
 	@FunctionalInterface
@@ -76,6 +83,40 @@ public class RawReader {
 					reader.eat(b);
 				return false;
 			}
+		});
+	}
+
+	public static Stream<LuxemEvent> streamEvents(final InputStream source) {
+		class State {
+			Deque<LuxemEvent> events = new ArrayDeque<>();
+
+			Runnable wrap(final Supplier<LuxemEvent> supplier) {
+				return () -> {
+					events.addLast(supplier.get());
+				};
+			}
+
+			Consumer<byte[]> wrapBytes(
+					final Function<String, LuxemEvent> supplier
+			) {
+				return bytes -> {
+					final String string = new String(bytes, StandardCharsets.UTF_8);
+					final LuxemEvent e = supplier.apply(string);
+					events.addLast(e);
+				};
+			}
+		}
+		final State state = new State();
+		final BufferedRawReader reader = new BufferedRawReader();
+		reader.eatRecordBegin = state.wrap(() -> new LObjectOpenEvent());
+		reader.eatRecordEnd = state.wrap(() -> new LObjectCloseEvent());
+		reader.eatArrayBegin = state.wrap(() -> new LArrayOpenEvent());
+		reader.eatArrayEnd = state.wrap(() -> new LArrayCloseEvent());
+		reader.eatKey = state.wrapBytes(s -> new LKeyEvent(s));
+		reader.eatType = state.wrapBytes(s -> new LTypeEvent(s));
+		reader.eatPrimitive = state.wrapBytes(s -> new LPrimitiveEvent(s));
+		return RawReader.stream(reader, source).flatMap(last -> {
+			return drain(state.events);
 		});
 	}
 

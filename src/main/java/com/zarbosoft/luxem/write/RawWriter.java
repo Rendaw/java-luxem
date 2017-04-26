@@ -2,6 +2,7 @@ package com.zarbosoft.luxem.write;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
 import java.util.Deque;
 
@@ -12,17 +13,28 @@ public class RawWriter {
 	private final OutputStream stream;
 	private boolean first = true;
 
+	public RawWriter type(final String value) throws IOException {
+		return type(value.getBytes(StandardCharsets.UTF_8));
+	}
+
+	public RawWriter primitive(final String value) throws IOException {
+		return primitive(value.getBytes(StandardCharsets.UTF_8));
+	}
+
+	public RawWriter key(final String key) throws IOException {
+		return key(key.getBytes(StandardCharsets.UTF_8));
+	}
+
 	private enum State {
 		ARRAY,
 		RECORD,
-		TYPED,
+		PREFIXED,
 	}
 
 	private final Deque<State> states = new ArrayDeque<>();
 
 	public RawWriter(final OutputStream stream) {
 		this(stream, false, (byte) 0, 0);
-		states.addLast(State.ARRAY);
 	}
 
 	public RawWriter(final OutputStream stream, final byte indentByte, final int indentMultiple) {
@@ -36,22 +48,24 @@ public class RawWriter {
 		this.pretty = pretty;
 		this.indentByte = indentByte;
 		this.indentMultiple = indentMultiple;
+		states.addLast(State.ARRAY);
 	}
 
 	private void valueBegin() throws IOException {
-		if (states.peekLast() == State.TYPED) {
+		if (states.peekLast() == State.PREFIXED) {
 			states.pollLast();
-		} else if (pretty && !first) {
+		} else if (first) {
+			first = false;
+		} else if (pretty) {
 			stream.write('\n');
 			indent();
-			first = false;
 		}
 	}
 
 	private void indent() throws IOException {
 		if (!pretty)
 			return;
-		for (int i = 0; i < states.size(); ++i)
+		for (int i = 0; i < states.size() - 1; ++i)
 			for (int j = 0; j < indentMultiple; ++j)
 				stream.write(indentByte);
 	}
@@ -92,14 +106,46 @@ public class RawWriter {
 		return this;
 	}
 
+	private boolean isAmbiguous(final byte b) {
+		switch (b) {
+			case ':':
+			case ',':
+			case '[':
+			case ']':
+			case '{':
+			case '}':
+			case '(':
+			case ')':
+			case ' ':
+			case '\n':
+			case '\t':
+			case '\r':
+			case '*':
+				return true;
+			default:
+				return false;
+		}
+	}
+
 	public RawWriter key(final byte[] bytes) throws IOException {
-		keyBegin();
-		keyChunk(bytes);
-		keyEnd();
+		if (pretty) {
+			for (int i = 0; i < bytes.length; ++i) {
+				if (isAmbiguous(bytes[i]))
+					return quotedKey(bytes);
+			}
+			return shortKey(bytes);
+		} else
+			return quotedKey(bytes);
+	}
+
+	public RawWriter shortKey(final byte[] bytes) throws IOException {
+		shortKeyBegin();
+		shortKeyChunk(bytes);
+		shortKeyEnd();
 		return this;
 	}
 
-	public RawWriter keyBegin() throws IOException {
+	public RawWriter shortKeyBegin() throws IOException {
 		if (pretty) {
 			stream.write('\n');
 			indent();
@@ -107,14 +153,45 @@ public class RawWriter {
 		return this;
 	}
 
-	private RawWriter keyEnd() throws IOException {
+	private RawWriter shortKeyEnd() throws IOException {
 		stream.write(':');
 		if (pretty)
 			stream.write(' ');
+		states.addLast(State.PREFIXED);
 		return this;
 	}
 
-	public RawWriter keyChunk(final byte[] bytes) throws IOException {
+	public RawWriter shortKeyChunk(final byte[] bytes) throws IOException {
+		stream.write(bytes);
+		return this;
+	}
+
+	public RawWriter quotedKey(final byte[] bytes) throws IOException {
+		quotedKeyBegin();
+		quotedKeyChunk(bytes);
+		quotedKeyEnd();
+		return this;
+	}
+
+	public RawWriter quotedKeyBegin() throws IOException {
+		if (pretty) {
+			stream.write('\n');
+			indent();
+		}
+		stream.write('"');
+		return this;
+	}
+
+	private RawWriter quotedKeyEnd() throws IOException {
+		stream.write('"');
+		stream.write(':');
+		if (pretty)
+			stream.write(' ');
+		states.addLast(State.PREFIXED);
+		return this;
+	}
+
+	public RawWriter quotedKeyChunk(final byte[] bytes) throws IOException {
 		int escapee = 0;
 		for (int i = 0; i < bytes.length; ++i) {
 			switch (bytes[i]) {
@@ -145,7 +222,6 @@ public class RawWriter {
 	}
 
 	public RawWriter type(final byte[] bytes) throws IOException {
-		valueBegin();
 		typeBegin();
 		typeChunk(bytes);
 		typeEnd();
@@ -162,7 +238,7 @@ public class RawWriter {
 		stream.write(')');
 		if (pretty)
 			stream.write(' ');
-		states.addLast(State.TYPED);
+		states.addLast(State.PREFIXED);
 		return this;
 	}
 
@@ -194,27 +270,36 @@ public class RawWriter {
 		return this;
 	}
 
-	public RawWriter shortPrimitive(final byte[] bytes) throws IOException {
-		for (int i = 0; i < bytes.length; ++i) {
-			switch (bytes[i]) {
-				case ',':
-				case '[':
-				case ']':
-				case '{':
-				case '}':
-				case '(':
-				case ')':
-				case ' ':
-				case '\n':
-				case '\t':
-				case '\r':
-				case '*':
+	public RawWriter primitive(final byte[] bytes) throws IOException {
+		if (pretty) {
+			for (int i = 0; i < bytes.length; ++i) {
+				if (isAmbiguous(bytes[i]))
 					return quotedPrimitive(bytes);
 			}
-		}
+			return shortPrimitive(bytes);
+		} else
+			return quotedPrimitive(bytes);
+	}
+
+	public RawWriter shortPrimitive(final byte[] bytes) throws IOException {
+		shortPrimitiveBegin();
+		shortPrimitiveChunk(bytes);
+		shortPrimitiveEnd();
+		return this;
+	}
+
+	public RawWriter shortPrimitiveBegin() throws IOException {
 		valueBegin();
-		stream.write(bytes);
+		return this;
+	}
+
+	private RawWriter shortPrimitiveEnd() throws IOException {
 		stream.write(',');
+		return this;
+	}
+
+	private RawWriter shortPrimitiveChunk(final byte[] bytes) throws IOException {
+		stream.write(bytes);
 		return this;
 	}
 

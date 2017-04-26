@@ -2,24 +2,18 @@ package com.zarbosoft.luxem.read;
 
 import com.zarbosoft.luxem.read.path.LuxemArrayPath;
 import com.zarbosoft.luxem.read.path.LuxemPath;
-import com.zarbosoft.luxem.read.source.*;
-import com.zarbosoft.pidgoon.bytes.Callback;
 import com.zarbosoft.pidgoon.events.EventStream;
+import com.zarbosoft.pidgoon.events.Store;
 import com.zarbosoft.pidgoon.internal.BaseParse;
+import com.zarbosoft.pidgoon.internal.Callback;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayDeque;
-import java.util.Deque;
 import java.util.Map;
-import java.util.function.Consumer;
-import java.util.function.Function;
-import java.util.function.Supplier;
 import java.util.stream.Stream;
 
-import static com.zarbosoft.rendaw.common.Common.drain;
-import static com.zarbosoft.rendaw.common.Common.enumerate;
+import static com.zarbosoft.rendaw.common.Common.concatNull;
 
 public class Parse<O> extends BaseParse<Parse<O>> {
 
@@ -51,10 +45,13 @@ public class Parse<O> extends BaseParse<Parse<O>> {
 	}
 
 	public Stream<O> parse(final InputStream stream) {
+		return parse(RawReader.streamEvents(stream));
+	}
+
+	public Stream<O> parse(final Stream<LuxemEvent> stream) {
 		class State {
-			EventStream<O> stream;
+			EventStream<O> stream = null;
 			LuxemPath path;
-			Deque<LuxemEvent> events = new ArrayDeque<>();
 
 			private void createStream() {
 				stream = new com.zarbosoft.pidgoon.events.Parse<O>()
@@ -64,29 +61,12 @@ public class Parse<O> extends BaseParse<Parse<O>> {
 						.errorHistory(errorHistoryLimit)
 						.dumpAmbiguity(dumpAmbiguity)
 						.uncertainty(eventUncertainty)
-						.callbacks((Map<String, Callback>) (Object) callbacks)
+						.callbacks((Map<String, Callback<Store>>) (Object) callbacks)
 						.parse();
 			}
 
 			State() {
 				this.path = new LuxemArrayPath(null);
-				createStream();
-			}
-
-			<O> Runnable wrap(final Supplier<LuxemEvent> supplier) {
-				return () -> {
-					events.addLast(supplier.get());
-				};
-			}
-
-			<O> Consumer<byte[]> wrapBytes(
-					final Function<String, LuxemEvent> supplier
-			) {
-				return bytes -> {
-					final String string = new String(bytes, StandardCharsets.UTF_8);
-					final LuxemEvent e = supplier.apply(string);
-					events.addLast(e);
-				};
 			}
 
 			public void handleEvent(final LuxemEvent e) {
@@ -95,28 +75,23 @@ public class Parse<O> extends BaseParse<Parse<O>> {
 			}
 		}
 		final State state = new State();
-		final BufferedRawReader reader = new BufferedRawReader();
-		reader.eatRecordBegin = state.wrap(() -> new LObjectOpenEvent());
-		reader.eatRecordEnd = state.wrap(() -> new LObjectCloseEvent());
-		reader.eatArrayBegin = state.wrap(() -> new LArrayOpenEvent());
-		reader.eatArrayEnd = state.wrap(() -> new LArrayCloseEvent());
-		reader.eatKey = state.wrapBytes(s -> new LKeyEvent(s));
-		reader.eatType = state.wrapBytes(s -> new LTypeEvent(s));
-		reader.eatPrimitive = state.wrapBytes(s -> new LPrimitiveEvent(s));
-		return RawReader.stream(reader, stream).flatMap(last -> {
-			return enumerate(drain(state.events)).map(pair -> {
-				int i = pair.first;
-				state.handleEvent(pair.second);
-				if (state.stream.ended()) {
-					O result = state.stream.finish();
-					state.createStream();
-					return result;
-				} else if (i == state.events.size() - 1 && last) {
-					throw new InvalidStream("Input stream ended mid-element.");
-				} else
+		return concatNull(stream).map(event -> {
+			if (event == null) {
+				if (state.stream == null)
 					return null;
-			}).filter(o -> o != null);
-		});
+				else
+					throw new InvalidStream("Input stream ended mid-element.");
+			}
+			if (state.stream == null)
+				state.createStream();
+			state.handleEvent(event);
+			if (state.stream.ended()) {
+				O result = state.stream.finish();
+				state.stream = null;
+				return result;
+			} else
+				return null;
+		}).filter(o -> o != null);
 	}
 
 }

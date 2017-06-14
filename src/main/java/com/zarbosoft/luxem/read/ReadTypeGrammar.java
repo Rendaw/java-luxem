@@ -8,7 +8,7 @@ import com.zarbosoft.pidgoon.Node;
 import com.zarbosoft.pidgoon.events.Grammar;
 import com.zarbosoft.pidgoon.events.Operator;
 import com.zarbosoft.pidgoon.events.Store;
-import com.zarbosoft.pidgoon.events.Terminal;
+import com.zarbosoft.pidgoon.events.MatchingEventTerminal;
 import com.zarbosoft.pidgoon.internal.Helper;
 import com.zarbosoft.pidgoon.nodes.Reference;
 import com.zarbosoft.pidgoon.nodes.Repeat;
@@ -32,7 +32,7 @@ public class ReadTypeGrammar {
 		grammar.add("root", new Union().add(Walk.walk(reflections, root, new Walk.Visitor<Node>() {
 			@Override
 			public Node visitString(final Field field) {
-				return new Operator(new Terminal(new LPrimitiveEvent(null)), s -> {
+				return new Operator(new MatchingEventTerminal(new LPrimitiveEvent(null)), s -> {
 					final LPrimitiveEvent event = (LPrimitiveEvent) s.top();
 					return s.pushStack(event.value);
 				});
@@ -40,7 +40,7 @@ public class ReadTypeGrammar {
 
 			@Override
 			public Node visitInteger(final Field field) {
-				return new Operator(new Terminal(new LPrimitiveEvent(null)), s -> {
+				return new Operator(new MatchingEventTerminal(new LPrimitiveEvent(null)), s -> {
 					final LPrimitiveEvent event = (LPrimitiveEvent) s.top();
 					try {
 						return s.pushStack(Integer.valueOf(event.value));
@@ -52,7 +52,7 @@ public class ReadTypeGrammar {
 
 			@Override
 			public Node visitDouble(final Field field) {
-				return new Operator(new Terminal(new LPrimitiveEvent(null)), s -> {
+				return new Operator(new MatchingEventTerminal(new LPrimitiveEvent(null)), s -> {
 					final LPrimitiveEvent event = (LPrimitiveEvent) s.top();
 					try {
 						return s.pushStack(Double.valueOf(event.value));
@@ -64,7 +64,7 @@ public class ReadTypeGrammar {
 
 			@Override
 			public Node visitBoolean(final Field field) {
-				return new Operator(new Terminal(new LPrimitiveEvent(null)), s -> {
+				return new Operator(new MatchingEventTerminal(new LPrimitiveEvent(null)), s -> {
 					final LPrimitiveEvent event = (LPrimitiveEvent) s.top();
 					if (event.value.equals("true"))
 						return s.pushStack(true);
@@ -79,7 +79,7 @@ public class ReadTypeGrammar {
 			public Node visitEnum(final Field field, final Class<?> enumClass) {
 				final Union union = new Union();
 				Walk.enumValues(enumClass).forEach(pair -> {
-					union.add(new Operator(new Terminal(new LPrimitiveEvent(Walk.decideName(pair.second))),
+					union.add(new Operator(new MatchingEventTerminal(new LPrimitiveEvent(Walk.decideName(pair.second))),
 							store -> store.pushStack(pair.first)
 					));
 				});
@@ -89,7 +89,7 @@ public class ReadTypeGrammar {
 			@Override
 			public Node visitList(final Field field, final Node inner) {
 				return new Sequence()
-						.add(new Operator(new Terminal(new LArrayOpenEvent()), s -> s.pushStack(0)))
+						.add(new Operator(new MatchingEventTerminal(new LArrayOpenEvent()), s -> s.pushStack(0)))
 						.add(new Repeat(new Operator(inner, s -> {
 							Object temp = s.stackTop();
 							s = (Store) s.popStack();
@@ -97,7 +97,7 @@ public class ReadTypeGrammar {
 							s = (Store) s.popStack();
 							return s.pushStack(temp).pushStack(count + 1);
 						})))
-						.add(new Operator(new Terminal(new LArrayCloseEvent()), s -> {
+						.add(new Operator(new MatchingEventTerminal(new LArrayCloseEvent()), s -> {
 							final List out = new ArrayList();
 							s = (Store) Helper.stackPopSingleList(s, out::add);
 							Collections.reverse(out);
@@ -108,7 +108,7 @@ public class ReadTypeGrammar {
 			@Override
 			public Node visitSet(final Field field, final Node inner) {
 				return new Sequence()
-						.add(new Operator(new Terminal(new LArrayOpenEvent()), s -> s.pushStack(0)))
+						.add(new Operator(new MatchingEventTerminal(new LArrayOpenEvent()), s -> s.pushStack(0)))
 						.add(new Repeat(new Operator(inner, s -> {
 							Object temp = s.stackTop();
 							s = (Store) s.popStack();
@@ -116,7 +116,7 @@ public class ReadTypeGrammar {
 							s = (Store) s.popStack();
 							return s.pushStack(temp).pushStack(count + 1);
 						})))
-						.add(new Operator(new Terminal(new LArrayCloseEvent()), s -> {
+						.add(new Operator(new MatchingEventTerminal(new LArrayCloseEvent()), s -> {
 							final java.util.Set out = new HashSet();
 							s = (Store) Helper.stackPopSingleList(s, (Consumer<Object>) out::add);
 							return s.pushStack(out);
@@ -126,11 +126,11 @@ public class ReadTypeGrammar {
 			@Override
 			public Node visitMap(final Field field, final Node inner) {
 				return new Sequence()
-						.add(new Operator(new Terminal(new LObjectOpenEvent()), s -> s.pushStack(0)))
-						.add(new Repeat(new Sequence().add(new Operator(new Terminal(new LKeyEvent(null)),
+						.add(new Operator(new MatchingEventTerminal(new LObjectOpenEvent()), s -> s.pushStack(0)))
+						.add(new Repeat(new Sequence().add(new Operator(new MatchingEventTerminal(new LKeyEvent(null)),
 								store -> store.pushStack(((LKeyEvent) store.top()).value)
 						)).add(new Operator(inner, Helper::stackDoubleElement))))
-						.add(new Operator(new Terminal(new LObjectCloseEvent()), s -> {
+						.add(new Operator(new MatchingEventTerminal(new LObjectCloseEvent()), s -> {
 							final Map out = new HashMap();
 							s = (Store) Helper.<Pair<String, Object>>stackPopSingleList(s,
 									p -> out.put(p.first, p.second)
@@ -155,7 +155,7 @@ public class ReadTypeGrammar {
 				final Union out = new Union();
 				derived.stream().forEach(s -> {
 					out.add(new Sequence()
-							.add(new Terminal(new LTypeEvent(Walk.decideName(s.first).toLowerCase())))
+							.add(new MatchingEventTerminal(new LTypeEvent(Walk.decideName(s.first).toLowerCase())))
 							.add(s.second));
 				});
 				grammar.add(klass.getTypeName(), out);
@@ -176,18 +176,18 @@ public class ReadTypeGrammar {
 				seen.add(klass);
 				final Sequence seq = new Sequence();
 				{
-					seq.add(new Operator(new Terminal(new LObjectOpenEvent()), s -> s.pushStack(0)));
+					seq.add(new Operator(new MatchingEventTerminal(new LObjectOpenEvent()), s -> s.pushStack(0)));
 					final com.zarbosoft.pidgoon.nodes.Set set = new com.zarbosoft.pidgoon.nodes.Set();
 					fields.forEach(f -> {
 						set.add(new Operator(new Sequence()
-								.add(new Terminal(new LKeyEvent(Walk.decideName(f.first))))
+								.add(new MatchingEventTerminal(new LKeyEvent(Walk.decideName(f.first))))
 								.add(f.second), s -> {
 							s = (Store) s.pushStack(f.first);
 							return Helper.stackDoubleElement(s);
 						}), fieldIsRequired(f.first));
 					});
 					seq.add(set);
-					seq.add(new Terminal(new LObjectCloseEvent()));
+					seq.add(new MatchingEventTerminal(new LObjectCloseEvent()));
 				}
 				final Node topNode;
 				final List<Pair<Field, Node>> minimalFields2 =

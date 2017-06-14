@@ -2,7 +2,7 @@ package com.zarbosoft.luxem.read.source;
 
 import com.zarbosoft.interface1.Configuration;
 import com.zarbosoft.luxem.read.LuxemEvent;
-import com.zarbosoft.pidgoon.events.Event;
+import com.zarbosoft.pidgoon.events.MatchingEvent;
 
 @Configuration(name = "primitive")
 public class LPrimitiveEvent implements LuxemEvent {
@@ -17,7 +17,7 @@ public class LPrimitiveEvent implements LuxemEvent {
 	public String value;
 
 	@Override
-	public boolean matches(final Event event) {
+	public boolean matches(final MatchingEvent event) {
 		return event.getClass() == getClass() && (value == null || value.equals(((LPrimitiveEvent) event).value));
 	}
 

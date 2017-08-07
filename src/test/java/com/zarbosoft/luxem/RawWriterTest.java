@@ -57,4 +57,6 @@ public class RawWriterTest {
 						.recordEnd()
 		);
 	}
+
+	// TODO test escaping
 }

@@ -1,6 +1,8 @@
 package com.zarbosoft.luxem;
 
+import com.google.common.collect.ImmutableMap;
 import com.zarbosoft.interface1.Configuration;
+import com.zarbosoft.interface1.Walk;
 import com.zarbosoft.pidgoon.InvalidStream;
 import org.junit.Test;
 import org.reflections.Reflections;
@@ -12,9 +14,13 @@ import static org.unitils.reflectionassert.ReflectionAssert.assertReflectionEqua
 public class ForTypeTest {
 	public static Reflections reflections = new Reflections("com.zarbosoft.luxem");
 
-	private void check(final Class<?> k, final String source, final Object expected) {
+	private void check(final Walk.TypeInfo k, final String source, final Object expected) {
 		final Object got = Luxem.parse(reflections, k, source).findFirst().get();
 		assertReflectionEquals(expected, got);
+	}
+
+	private void check(final Class<?> k, final String source, final Object expected) {
+		check(new Walk.TypeInfo(k), source, expected);
 	}
 
 	@Test
@@ -25,7 +31,7 @@ public class ForTypeTest {
 	@Test
 	public void testRootArray() {
 		final String[] got = (String[]) Luxem
-				.parse(reflections, String.class, "\"l2:food\",\"online\",\"l1:expense\",")
+				.parse(reflections, new Walk.TypeInfo(String.class), "\"l2:food\",\"online\",\"l1:expense\",")
 				.toArray(String[]::new);
 		assertReflectionEquals(new String[] {"l2:food", "online", "l1:expense"}, got);
 	}
@@ -308,4 +314,19 @@ public class ForTypeTest {
 				}))
 		);
 	}
+
+	@Test
+	public void testGenericRootList() {
+		check(new Walk.TypeInfo(List.class, new Walk.TypeInfo(String.class)), "[a,b,c]", Arrays.asList("a", "b", "c"));
+	}
+
+	@Test
+	public void testGenericRootMap() {
+		check(
+				new Walk.TypeInfo(Map.class, new Walk.TypeInfo(String.class), new Walk.TypeInfo(String.class)),
+				"{a:1,b:2}",
+				ImmutableMap.of("a", "1", "b", "2")
+		);
+	}
+
 }

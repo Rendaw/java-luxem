@@ -6,9 +6,9 @@ import com.zarbosoft.luxem.read.source.*;
 import com.zarbosoft.pidgoon.AbortParse;
 import com.zarbosoft.pidgoon.Node;
 import com.zarbosoft.pidgoon.events.Grammar;
+import com.zarbosoft.pidgoon.events.MatchingEventTerminal;
 import com.zarbosoft.pidgoon.events.Operator;
 import com.zarbosoft.pidgoon.events.Store;
-import com.zarbosoft.pidgoon.events.MatchingEventTerminal;
 import com.zarbosoft.pidgoon.internal.Helper;
 import com.zarbosoft.pidgoon.nodes.Reference;
 import com.zarbosoft.pidgoon.nodes.Repeat;
@@ -18,7 +18,6 @@ import com.zarbosoft.rendaw.common.Pair;
 import org.reflections.Reflections;
 
 import java.lang.reflect.Field;
-import java.lang.reflect.Type;
 import java.util.*;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -27,7 +26,7 @@ import static com.zarbosoft.rendaw.common.Common.uncheck;
 
 public class ReadTypeGrammar {
 	public static Grammar buildGrammar(final Reflections reflections, final Walk.TypeInfo root) {
-		final HashSet<Type> seen = new HashSet<>();
+		final HashSet<Object> seen = new HashSet<>();
 		final Grammar grammar = new Grammar();
 		grammar.add("root", new Union().add(Walk.walk(reflections, root, new Walk.Visitor<Node>() {
 			@Override
@@ -140,40 +139,34 @@ public class ReadTypeGrammar {
 			}
 
 			@Override
-			public Node visitAbstractShort(final Field field, final Class<?> klass) {
-				if (seen.contains(klass))
-					return new Reference(klass.getTypeName());
-				return null;
-			}
-
-			@Override
 			public Node visitAbstract(
 					final Field field, final Class<?> klass, final List<Pair<Class<?>, Node>> derived
 			) {
-				seen.add(klass);
-				final java.util.Set<String> subclassNames = new HashSet<>();
-				final Union out = new Union();
-				derived.stream().forEach(s -> {
-					out.add(new Sequence()
-							.add(new MatchingEventTerminal(new LTypeEvent(Walk.decideName(s.first).toLowerCase())))
-							.add(s.second));
-				});
-				grammar.add(klass.getTypeName(), out);
-				return new Reference(klass.getTypeName());
+				final Pair<Class<?>, Set<Class<?>>> key =
+						new Pair<>(klass, derived.stream().map(p -> p.first).collect(Collectors.toSet()));
+				if (!seen.contains(key)) {
+					seen.add(key);
+					final java.util.Set<String> subclassNames = new HashSet<>();
+					final Union out = new Union();
+					derived.stream().forEach(s -> {
+						out.add(new Sequence()
+								.add(new MatchingEventTerminal(new LTypeEvent(Walk.decideName(s.first).toLowerCase())))
+								.add(s.second));
+					});
+					grammar.add(key, out);
+				}
+				return new Reference(key);
 			}
 
 			@Override
 			public Node visitConcreteShort(final Field field, final Class<?> klass) {
-				if (seen.contains(klass))
-					return new Reference(klass.getTypeName());
-				return null;
+				return new Reference(klass.getTypeName());
 			}
 
 			@Override
-			public Node visitConcrete(
+			public void visitConcrete(
 					final Field field, final Class<?> klass, final List<Pair<Field, Node>> fields
 			) {
-				seen.add(klass);
 				final Sequence seq = new Sequence();
 				{
 					seq.add(new Operator(new MatchingEventTerminal(new LObjectOpenEvent()), s -> s.pushStack(0)));
@@ -216,7 +209,6 @@ public class ReadTypeGrammar {
 					});
 					return s.pushStack(out);
 				}));
-				return new Reference(klass.getTypeName());
 			}
 		})).add(new Operator(store -> store.pushStack(null))));
 		return grammar;

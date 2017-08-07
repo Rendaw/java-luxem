@@ -61,7 +61,7 @@ public class Parse<O> extends BaseParse<Parse<O>> {
 						.errorHistory(errorHistoryLimit)
 						.dumpAmbiguity(dumpAmbiguity)
 						.uncertainty(eventUncertainty)
-						.callbacks((Map<String, Callback<Store>>) (Object) callbacks)
+						.callbacks((Map<Object, Callback<Store>>) (Object) callbacks)
 						.parse();
 			}
 

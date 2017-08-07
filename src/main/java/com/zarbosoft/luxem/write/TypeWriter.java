@@ -29,11 +29,7 @@ public class TypeWriter {
 		return this;
 	}
 
-	public TypeWriter write(final Object root) {
-		return write(root.getClass(), root);
-	}
-
-	public TypeWriter write(final Class<?> rootType, final Object root) {
+	public TypeWriter write(final Walk.TypeInfo rootType, final Object root) {
 		if (writer == null)
 			writer = new RawWriter(stream);
 		Walk.walk(rootType, root, new Walk.ObjectVisitor() {

@@ -1,10 +1,13 @@
 package com.zarbosoft.luxem.write;
 
+import com.google.common.collect.ImmutableMap;
+
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.Map;
 
 public class RawWriter {
 	private final boolean pretty;
@@ -191,33 +194,15 @@ public class RawWriter {
 		return this;
 	}
 
+	private static final Map<Byte, Byte> quotedKeyEscapes = new ImmutableMap.Builder<Byte, Byte>()
+			.put((byte) '"', (byte) '"')
+			.put((byte) '\n', (byte) 'n')
+			.put((byte) '\t', (byte) 't')
+			.put((byte) '\r', (byte) 'r')
+			.build();
+
 	public RawWriter quotedKeyChunk(final byte[] bytes) throws IOException {
-		int escapee = 0;
-		for (int i = 0; i < bytes.length; ++i) {
-			switch (bytes[i]) {
-				case ':':
-				case ' ':
-				case '\n':
-				case '\t':
-				case '\r':
-				case '*':
-					break;
-				default:
-					continue;
-			}
-			stream.write(bytes, escapee, i - escapee);
-			stream.write('\\');
-			if (bytes[i] == '\n')
-				stream.write('n');
-			else if (bytes[i] == '\t')
-				stream.write('t');
-			else if (bytes[i] == '\r')
-				stream.write('r');
-			else
-				stream.write(bytes[i]);
-			escapee = i;
-		}
-		stream.write(bytes, escapee, bytes.length - escapee);
+		escape(stream, bytes, quotedKeyEscapes);
 		return this;
 	}
 
@@ -242,31 +227,31 @@ public class RawWriter {
 		return this;
 	}
 
-	public RawWriter typeChunk(final byte[] bytes) throws IOException {
-		int escapee = 0;
+	private static void escape(
+			final OutputStream stream, final byte[] bytes, final Map<Byte, Byte> escapes
+	) throws IOException {
+		int lastEscape = 0;
 		for (int i = 0; i < bytes.length; ++i) {
-			switch (bytes[i]) {
-				case ')':
-				case '\n':
-				case '\t':
-				case '\r':
-					break;
-				default:
-					continue;
-			}
-			stream.write(bytes, escapee, i - escapee);
+			final Byte key = escapes.get(bytes[i]);
+			if (key == null)
+				continue;
+			stream.write(bytes, lastEscape, i - lastEscape);
 			stream.write('\\');
-			if (bytes[i] == '\n')
-				stream.write('n');
-			else if (bytes[i] == '\t')
-				stream.write('t');
-			else if (bytes[i] == '\r')
-				stream.write('r');
-			else
-				stream.write(bytes[i]);
-			escapee = i;
+			stream.write(key);
+			lastEscape = i + 1;
 		}
-		stream.write(bytes, escapee, bytes.length - escapee);
+		stream.write(bytes, lastEscape, bytes.length - lastEscape);
+	}
+
+	private static final Map<Byte, Byte> typeEscapes = new ImmutableMap.Builder<Byte, Byte>()
+			.put((byte) ')', (byte) ')')
+			.put((byte) '\n', (byte) 'n')
+			.put((byte) '\t', (byte) 't')
+			.put((byte) '\r', (byte) 'r')
+			.build();
+
+	public RawWriter typeChunk(final byte[] bytes) throws IOException {
+		escape(stream, bytes, typeEscapes);
 		return this;
 	}
 
@@ -322,31 +307,15 @@ public class RawWriter {
 		return this;
 	}
 
+	private static final Map<Byte, Byte> quotedPrimitiveEscapes = new ImmutableMap.Builder<Byte, Byte>()
+			.put((byte) '"', (byte) '"')
+			.put((byte) '\n', (byte) 'n')
+			.put((byte) '\t', (byte) 't')
+			.put((byte) '\r', (byte) 'r')
+			.build();
+
 	public RawWriter quotedPrimitiveChunk(final byte[] bytes) throws IOException {
-		int escapee = 0;
-		for (int i = 0; i < bytes.length; ++i) {
-			switch (bytes[i]) {
-				case ')':
-				case '\n':
-				case '\t':
-				case '\r':
-					break;
-				default:
-					continue;
-			}
-			stream.write(bytes, escapee, i - escapee);
-			stream.write('\\');
-			if (bytes[i] == '\n')
-				stream.write('n');
-			else if (bytes[i] == '\t')
-				stream.write('t');
-			else if (bytes[i] == '\r')
-				stream.write('r');
-			else
-				stream.write(bytes[i]);
-			escapee = i;
-		}
-		stream.write(bytes, escapee, bytes.length - escapee);
+		escape(stream, bytes, quotedPrimitiveEscapes);
 		return this;
 	}
 }

@@ -24,6 +24,7 @@ public class BufferedRawReader extends RawReader {
 	};
 
 	private ByteArrayOutputStream top = new ByteArrayOutputStream();
+	boolean sent = false;
 	private final Integer chunked;
 
 	public BufferedRawReader() {
@@ -35,16 +36,18 @@ public class BufferedRawReader extends RawReader {
 		super.eatPrimitiveBegin = () -> {
 			eatPrimitiveBegin.run();
 			top = new ByteArrayOutputStream();
+			sent = false;
 		};
 		super.eatPrimitive = b -> {
 			top.write(b);
 			if (chunked != null && top.size() >= chunked) {
 				eatPrimitive.accept(top.toByteArray());
 				top.reset();
+				sent = true;
 			}
 		};
 		super.eatPrimitiveEnd = () -> {
-			if (top.size() > 0) {
+			if (!sent || top.size() > 0) {
 				eatPrimitive.accept(top.toByteArray());
 				top.reset();
 			}
@@ -53,16 +56,18 @@ public class BufferedRawReader extends RawReader {
 		super.eatTypeBegin = () -> {
 			eatTypeBegin.run();
 			top = new ByteArrayOutputStream();
+			sent = false;
 		};
 		super.eatType = b -> {
 			top.write(b);
 			if (chunked != null && top.size() >= chunked) {
 				eatType.accept(top.toByteArray());
 				top.reset();
+				sent = true;
 			}
 		};
 		super.eatTypeEnd = () -> {
-			if (top.size() > 0) {
+			if (!sent || top.size() > 0) {
 				eatType.accept(top.toByteArray());
 				top.reset();
 			}
@@ -71,16 +76,18 @@ public class BufferedRawReader extends RawReader {
 		super.eatKeyBegin = () -> {
 			eatKeyBegin.run();
 			top = new ByteArrayOutputStream();
+			sent = false;
 		};
 		super.eatKey = b -> {
 			top.write(b);
 			if (chunked != null && top.size() >= chunked) {
 				eatKey.accept(top.toByteArray());
 				top.reset();
+				sent = true;
 			}
 		};
 		super.eatKeyEnd = () -> {
-			if (top.size() > 0) {
+			if (!sent || top.size() > 0) {
 				eatKey.accept(top.toByteArray());
 				top.reset();
 			}

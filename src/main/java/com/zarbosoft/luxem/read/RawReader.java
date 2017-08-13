@@ -66,10 +66,12 @@ public class RawReader {
 	}
 
 	private void finish() {
-		if (stack.size() > 2)
-			throw new InvalidStream("End reached mid-element.");
-		if (stack.size() == 2)
-			stack.peekLast().finish(this);
+		if (stack.size() >= 3) {
+			if (stack.size() == 3 && stack.peekLast().getClass() == Primitive.class)
+				stack.peekLast().finish(this);
+			else
+				throw new InvalidStream("End reached mid-element.");
+		}
 	}
 
 	public static Stream<Boolean> stream(final RawReader reader, final InputStream source) {
@@ -141,17 +143,25 @@ public class RawReader {
 	}
 
 	private static class RootArray extends State {
-		boolean first = true;
-
 		public boolean eat(final RawReader raw, final byte next) {
 			if (raw.eatInterstitial(next))
 				return true;
-			if (!first && next == (byte) ',') {
-				return true;
-			}
-			first = false;
+			raw.stack.addLast(new RootArrayBorder());
 			raw.stack.addLast(new Value());
 			return false;
+		}
+	}
+
+	private static class RootArrayBorder extends State {
+		public boolean eat(final RawReader raw, final byte next) {
+			if (raw.eatInterstitial(next))
+				return true;
+			switch (next) {
+				case (byte) ',':
+					finished(raw);
+					return true;
+			}
+			throw new InvalidStream("Expected [,].");
 		}
 	}
 

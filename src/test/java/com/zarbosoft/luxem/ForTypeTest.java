@@ -1,5 +1,6 @@
 package com.zarbosoft.luxem;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.zarbosoft.interface1.Configuration;
 import com.zarbosoft.interface1.Walk;
@@ -8,6 +9,7 @@ import org.junit.Test;
 import org.reflections.Reflections;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 import static org.unitils.reflectionassert.ReflectionAssert.assertReflectionEquals;
 
@@ -30,10 +32,11 @@ public class ForTypeTest {
 
 	@Test
 	public void testRootArray() {
-		final String[] got = (String[]) Luxem
-				.parse(reflections, new Walk.TypeInfo(String.class), "\"l2:food\",\"online\",\"l1:expense\",")
-				.toArray(String[]::new);
-		assertReflectionEquals(new String[] {"l2:food", "online", "l1:expense"}, got);
+		final List<String> got = Luxem.<String>parse(reflections,
+				new Walk.TypeInfo(String.class),
+				"\"l2:food\",\"online\",\"l1:expense\","
+		).collect(Collectors.toList());
+		assertReflectionEquals(ImmutableList.of("l2:food", "online", "l1:expense"), got);
 	}
 
 	@Test
@@ -195,8 +198,7 @@ public class ForTypeTest {
 
 	@Test
 	public void testRepeatedAbbreviations() {
-		check(
-				Outer5.class,
+		check(Outer5.class,
 				"{data:[q,q,q,q,q,q,q,q,q,q,q,q,q,q,q,q,q,q,q,q]}",
 				new Outer5(Arrays.asList(new Subject5[] {
 						new Subject5("q"),

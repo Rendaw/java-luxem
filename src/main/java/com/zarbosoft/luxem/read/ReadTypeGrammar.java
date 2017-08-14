@@ -25,10 +25,15 @@ import java.util.stream.Collectors;
 import static com.zarbosoft.rendaw.common.Common.uncheck;
 
 public class ReadTypeGrammar {
+	/**
+	 * @param reflections
+	 * @param root
+	 * @return A pair of the grammar and the node for the root type.
+	 */
 	public static Grammar buildGrammar(final Reflections reflections, final Walk.TypeInfo root) {
 		final HashSet<Object> seen = new HashSet<>();
 		final Grammar grammar = new Grammar();
-		grammar.add("root", new Union().add(Walk.walk(reflections, root, new Walk.Visitor<Node>() {
+		grammar.add("root", Walk.walk(reflections, root, new Walk.Visitor<Node>() {
 			@Override
 			public Node visitString(final Field field) {
 				return new Operator(new MatchingEventTerminal(new LPrimitiveEvent(null)), s -> {
@@ -210,7 +215,7 @@ public class ReadTypeGrammar {
 					return s.pushStack(out);
 				}));
 			}
-		})).add(new Operator(store -> store.pushStack(null))));
+		}));
 		return grammar;
 	}
 

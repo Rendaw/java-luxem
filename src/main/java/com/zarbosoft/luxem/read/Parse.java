@@ -14,6 +14,7 @@ import java.util.Map;
 import java.util.stream.Stream;
 
 import static com.zarbosoft.rendaw.common.Common.concatNull;
+import static com.zarbosoft.rendaw.common.Common.iterable;
 
 public class Parse<O> extends BaseParse<Parse<O>> {
 
@@ -40,15 +41,41 @@ public class Parse<O> extends BaseParse<Parse<O>> {
 		return out;
 	}
 
-	public Stream<O> parse(final String string) {
+	public O parse(final String string) {
 		return parse(new ByteArrayInputStream(string.getBytes(StandardCharsets.UTF_8)));
 	}
 
-	public Stream<O> parse(final InputStream stream) {
+	public O parse(final InputStream stream) {
 		return parse(RawReader.streamEvents(stream));
 	}
 
-	public Stream<O> parse(final Stream<LuxemEvent> stream) {
+	public O parse(final Stream<LuxemEvent> stream) {
+		EventStream<O> stream1 = new com.zarbosoft.pidgoon.events.Parse<O>()
+				.grammar(grammar)
+				.root(root)
+				.stack(initialStack)
+				.errorHistory(errorHistoryLimit)
+				.dumpAmbiguity(dumpAmbiguity)
+				.uncertainty(eventUncertainty)
+				.callbacks((Map<Object, Callback<Store>>) (Object) callbacks)
+				.parse();
+		LuxemPath path = new LuxemArrayPath(null);
+		for (final LuxemEvent e : iterable(stream)) {
+			stream1 = stream1.push(e, path.toString());
+			path = path.push(e);
+		}
+		return stream1.finish();
+	}
+
+	public Stream<O> parseByElement(final String string) {
+		return parseByElement(new ByteArrayInputStream(string.getBytes(StandardCharsets.UTF_8)));
+	}
+
+	public Stream<O> parseByElement(final InputStream stream) {
+		return parseByElement(RawReader.streamEvents(stream));
+	}
+
+	public Stream<O> parseByElement(final Stream<LuxemEvent> stream) {
 		class State {
 			EventStream<O> stream = null;
 			LuxemPath path;
@@ -56,7 +83,7 @@ public class Parse<O> extends BaseParse<Parse<O>> {
 			private void createStream() {
 				stream = new com.zarbosoft.pidgoon.events.Parse<O>()
 						.grammar(grammar)
-						.node(node)
+						.root(root)
 						.stack(initialStack)
 						.errorHistory(errorHistoryLimit)
 						.dumpAmbiguity(dumpAmbiguity)

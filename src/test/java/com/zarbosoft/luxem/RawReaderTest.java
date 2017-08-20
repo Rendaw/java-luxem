@@ -2,8 +2,10 @@ package com.zarbosoft.luxem;
 
 import com.zarbosoft.luxem.read.BufferedRawReader;
 import com.zarbosoft.luxem.read.InvalidStream;
-import com.zarbosoft.luxem.read.LuxemEvent;
+import com.zarbosoft.luxem.read.RawReader;
 import com.zarbosoft.luxem.read.source.LPrimitiveEvent;
+import com.zarbosoft.pidgoon.events.Event;
+import com.zarbosoft.pidgoon.events.MatchingEvent;
 import com.zarbosoft.rendaw.common.Common;
 import org.junit.Test;
 
@@ -16,15 +18,18 @@ import java.util.stream.Collectors;
 import static com.zarbosoft.rendaw.common.Common.zip;
 
 public class RawReaderTest {
-	public List<LuxemEvent> read(final String source) {
+	public List<Event> read(final String source) {
 		return BufferedRawReader
-				.streamEvents(new ByteArrayInputStream(source.getBytes(StandardCharsets.UTF_8)))
+				.streamEvents(new ByteArrayInputStream(source.getBytes(StandardCharsets.UTF_8)),
+						new RawReader.DefaultEventFactory()
+				)
+				.map(pair -> pair.first)
 				.collect(Collectors.toList());
 	}
 
-	public void check(final String source, final LuxemEvent... events) {
-		final List<LuxemEvent> got = read(source);
-		final List<LuxemEvent> expected = Arrays.asList(events);
+	public void check(final String source, final Event... events) {
+		final List<Event> got = read(source);
+		final List<Event> expected = Arrays.asList(events);
 		if (got.size() != expected.size())
 			throw new AssertionError(String.format("Size mismatch:\nGot %s: %s\nExpected %s: %s",
 					got.size(),
@@ -33,7 +38,7 @@ public class RawReaderTest {
 					expected
 			));
 		zip(got.stream(), expected.stream()).map(new Common.Enumerator<>()).forEach(pair -> {
-			if (!pair.second.second.matches(pair.second.first)) {
+			if (!((MatchingEvent) pair.second.second).matches((MatchingEvent) pair.second.first)) {
 				throw new AssertionError(String.format("Stream mismatch at %s:\nGot: %s\nExpected: %s",
 						pair.first,
 						pair.second.first,

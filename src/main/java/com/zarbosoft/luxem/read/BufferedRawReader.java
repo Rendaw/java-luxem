@@ -1,26 +1,30 @@
 package com.zarbosoft.luxem.read;
 
 import java.io.ByteArrayOutputStream;
-import java.util.function.Consumer;
 
 public class BufferedRawReader extends RawReader {
-	public Runnable eatPrimitiveBegin = () -> {
+	@FunctionalInterface
+	public interface BytesConsumer {
+		void accept(byte[] b);
+	}
+
+	public VoidConsumer eatPrimitiveBegin = () -> {
 	};
-	public Consumer<byte[]> eatPrimitive = b -> {
+	public BytesConsumer eatPrimitive = b -> {
 	};
-	public Runnable eatPrimitiveEnd = () -> {
+	public VoidConsumer eatPrimitiveEnd = () -> {
 	};
-	public Runnable eatTypeBegin = () -> {
+	public VoidConsumer eatTypeBegin = () -> {
 	};
-	public Consumer<byte[]> eatType = b -> {
+	public BytesConsumer eatType = b -> {
 	};
-	public Runnable eatTypeEnd = () -> {
+	public VoidConsumer eatTypeEnd = () -> {
 	};
-	public Runnable eatKeyBegin = () -> {
+	public VoidConsumer eatKeyBegin = () -> {
 	};
-	public Consumer<byte[]> eatKey = b -> {
+	public BytesConsumer eatKey = b -> {
 	};
-	public Runnable eatKeyEnd = () -> {
+	public VoidConsumer eatKeyEnd = () -> {
 	};
 
 	private ByteArrayOutputStream top = new ByteArrayOutputStream();

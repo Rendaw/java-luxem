@@ -1,50 +1,57 @@
 package com.zarbosoft.luxem.read;
 
+import com.zarbosoft.luxem.read.path.LuxemArrayPath;
+import com.zarbosoft.luxem.read.path.LuxemObjectPath;
+import com.zarbosoft.luxem.read.path.LuxemPath;
 import com.zarbosoft.luxem.read.source.*;
+import com.zarbosoft.pidgoon.events.Event;
 import com.zarbosoft.rendaw.common.Common;
+import com.zarbosoft.rendaw.common.Pair;
 
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
 import java.util.Deque;
-import java.util.function.Consumer;
-import java.util.function.Function;
-import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 import static com.zarbosoft.rendaw.common.Common.drain;
 
 public class RawReader {
 	@FunctionalInterface
+	public interface VoidConsumer {
+		void run();
+	}
+
+	@FunctionalInterface
 	public interface ByteConsumer {
 		void accept(byte b);
 	}
 
-	public Runnable eatPrimitiveBegin = () -> {
+	public VoidConsumer eatPrimitiveBegin = () -> {
 	};
 	public ByteConsumer eatPrimitive = b -> {
 	};
-	public Runnable eatPrimitiveEnd = () -> {
+	public VoidConsumer eatPrimitiveEnd = () -> {
 	};
-	public Runnable eatTypeBegin = () -> {
+	public VoidConsumer eatTypeBegin = () -> {
 	};
 	public ByteConsumer eatType = b -> {
 	};
-	public Runnable eatTypeEnd = () -> {
+	public VoidConsumer eatTypeEnd = () -> {
 	};
-	public Runnable eatArrayBegin = () -> {
+	public VoidConsumer eatArrayBegin = () -> {
 	};
-	public Runnable eatArrayEnd = () -> {
+	public VoidConsumer eatArrayEnd = () -> {
 	};
-	public Runnable eatKeyBegin = () -> {
+	public VoidConsumer eatKeyBegin = () -> {
 	};
 	public ByteConsumer eatKey = b -> {
 	};
-	public Runnable eatKeyEnd = () -> {
+	public VoidConsumer eatKeyEnd = () -> {
 	};
-	public Runnable eatRecordBegin = () -> {
+	public VoidConsumer eatRecordBegin = () -> {
 	};
-	public Runnable eatRecordEnd = () -> {
+	public VoidConsumer eatRecordEnd = () -> {
 	};
 
 	private abstract static class State {
@@ -88,35 +95,42 @@ public class RawReader {
 		});
 	}
 
-	public static Stream<LuxemEvent> streamEvents(final InputStream source) {
+	public static Stream<Pair<Event, Object>> streamEvents(final InputStream source, final EventFactory factory) {
 		class State {
-			Deque<LuxemEvent> events = new ArrayDeque<>();
-
-			Runnable wrap(final Supplier<LuxemEvent> supplier) {
-				return () -> {
-					events.addLast(supplier.get());
-				};
-			}
-
-			Consumer<byte[]> wrapBytes(
-					final Function<String, LuxemEvent> supplier
-			) {
-				return bytes -> {
-					final String string = new String(bytes, StandardCharsets.UTF_8);
-					final LuxemEvent e = supplier.apply(string);
-					events.addLast(e);
-				};
-			}
+			LuxemPath path = new LuxemArrayPath(null);
+			Deque<Pair<Event, Object>> events = new ArrayDeque<>();
 		}
 		final State state = new State();
 		final BufferedRawReader reader = new BufferedRawReader();
-		reader.eatRecordBegin = state.wrap(() -> new LObjectOpenEvent());
-		reader.eatRecordEnd = state.wrap(() -> new LObjectCloseEvent());
-		reader.eatArrayBegin = state.wrap(() -> new LArrayOpenEvent());
-		reader.eatArrayEnd = state.wrap(() -> new LArrayCloseEvent());
-		reader.eatKey = state.wrapBytes(s -> new LKeyEvent(s));
-		reader.eatType = state.wrapBytes(s -> new LTypeEvent(s));
-		reader.eatPrimitive = state.wrapBytes(s -> new LPrimitiveEvent(s));
+		reader.eatRecordBegin = () -> {
+			state.path = new LuxemObjectPath(state.path.value());
+			state.events.addLast(new Pair<>(factory.objectOpen(), state.path));
+		};
+		reader.eatRecordEnd = () -> {
+			state.path = state.path.pop();
+			state.events.addLast(new Pair<>(factory.objectClose(), state.path));
+		};
+		reader.eatArrayBegin = () -> {
+			state.path = new LuxemArrayPath(state.path.value());
+			state.events.addLast(new Pair<>(factory.arrayOpen(), state.path));
+		};
+		reader.eatArrayEnd = () -> {
+			state.path = state.path.pop();
+			state.events.addLast(new Pair<>(factory.arrayClose(), state.path));
+		};
+		reader.eatKey = bytes -> {
+			final String string = new String(bytes, StandardCharsets.UTF_8);
+			state.path = state.path.key(string);
+			state.events.addLast(new Pair<>(factory.key(string), state.path));
+		};
+		reader.eatType = bytes -> {
+			state.path = state.path.type();
+			state.events.addLast(new Pair<>(factory.type(new String(bytes, StandardCharsets.UTF_8)), state.path));
+		};
+		reader.eatPrimitive = bytes -> {
+			state.path = state.path.value();
+			state.events.addLast(new Pair<>(factory.primitive(new String(bytes, StandardCharsets.UTF_8)), state.path));
+		};
 		return RawReader.stream(reader, source).flatMap(last -> {
 			return drain(state.events);
 		});
@@ -486,5 +500,59 @@ public class RawReader {
 		protected abstract void eatMiddle(RawReader raw, byte next);
 
 		protected abstract Resolution eatEnd(RawReader raw, byte next);
+	}
+
+	public interface EventFactory {
+		Event objectOpen();
+
+		Event objectClose();
+
+		Event arrayOpen();
+
+		Event arrayClose();
+
+		Event key(String s);
+
+		Event type(String s);
+
+		Event primitive(String s);
+	}
+
+	public static class DefaultEventFactory implements EventFactory {
+
+		@Override
+		public Event objectOpen() {
+			return new LObjectOpenEvent();
+		}
+
+		@Override
+		public Event objectClose() {
+			return new LObjectCloseEvent();
+		}
+
+		@Override
+		public Event arrayOpen() {
+			return new LArrayOpenEvent();
+		}
+
+		@Override
+		public Event arrayClose() {
+			return new LArrayCloseEvent();
+		}
+
+		@Override
+		public Event key(final String s) {
+			return new LKeyEvent(s);
+		}
+
+		@Override
+		public Event type(final String s) {
+			return new LTypeEvent(s);
+		}
+
+		@Override
+		public Event primitive(final String s) {
+			return new LPrimitiveEvent(s);
+		}
 	}
 }

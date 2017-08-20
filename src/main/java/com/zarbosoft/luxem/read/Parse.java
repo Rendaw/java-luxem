@@ -1,11 +1,11 @@
 package com.zarbosoft.luxem.read;
 
-import com.zarbosoft.luxem.read.path.LuxemArrayPath;
-import com.zarbosoft.luxem.read.path.LuxemPath;
+import com.zarbosoft.pidgoon.events.Event;
 import com.zarbosoft.pidgoon.events.EventStream;
 import com.zarbosoft.pidgoon.events.Store;
 import com.zarbosoft.pidgoon.internal.BaseParse;
 import com.zarbosoft.pidgoon.internal.Callback;
+import com.zarbosoft.rendaw.common.Pair;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
@@ -19,10 +19,12 @@ import static com.zarbosoft.rendaw.common.Common.iterable;
 public class Parse<O> extends BaseParse<Parse<O>> {
 
 	private int eventUncertainty = 20;
+	private RawReader.EventFactory factory = null;
 
 	private Parse(final Parse<O> other) {
 		super(other);
 		this.eventUncertainty = other.eventUncertainty;
+		this.factory = other.factory;
 	}
 
 	@Override
@@ -41,15 +43,23 @@ public class Parse<O> extends BaseParse<Parse<O>> {
 		return out;
 	}
 
+	public Parse<O> eventFactory(final RawReader.EventFactory factory) {
+		if (this.factory != null)
+			throw new IllegalArgumentException("Factory already set");
+		final Parse<O> out = split();
+		out.factory = factory;
+		return out;
+	}
+
 	public O parse(final String string) {
 		return parse(new ByteArrayInputStream(string.getBytes(StandardCharsets.UTF_8)));
 	}
 
 	public O parse(final InputStream stream) {
-		return parse(RawReader.streamEvents(stream));
+		return parse(RawReader.streamEvents(stream, factory == null ? new RawReader.DefaultEventFactory() : factory));
 	}
 
-	public O parse(final Stream<LuxemEvent> stream) {
+	public O parse(final Stream<Pair<Event, Object>> stream) {
 		EventStream<O> stream1 = new com.zarbosoft.pidgoon.events.Parse<O>()
 				.grammar(grammar)
 				.root(root)
@@ -59,11 +69,8 @@ public class Parse<O> extends BaseParse<Parse<O>> {
 				.uncertainty(eventUncertainty)
 				.callbacks((Map<Object, Callback<Store>>) (Object) callbacks)
 				.parse();
-		LuxemPath path = new LuxemArrayPath(null);
-		for (final LuxemEvent e : iterable(stream)) {
-			stream1 = stream1.push(e, path.toString());
-			path = path.push(e);
-		}
+		for (final Pair<Event, Object> pair : iterable(stream))
+			stream1 = stream1.push(pair.first, pair.second);
 		return stream1.finish();
 	}
 
@@ -72,13 +79,14 @@ public class Parse<O> extends BaseParse<Parse<O>> {
 	}
 
 	public Stream<O> parseByElement(final InputStream stream) {
-		return parseByElement(RawReader.streamEvents(stream));
+		return parseByElement(RawReader.streamEvents(stream,
+				factory == null ? new RawReader.DefaultEventFactory() : factory
+		));
 	}
 
-	public Stream<O> parseByElement(final Stream<LuxemEvent> stream) {
+	public Stream<O> parseByElement(final Stream<Pair<Event, Object>> stream) {
 		class State {
 			EventStream<O> stream = null;
-			LuxemPath path;
 
 			private void createStream() {
 				stream = new com.zarbosoft.pidgoon.events.Parse<O>()
@@ -92,18 +100,13 @@ public class Parse<O> extends BaseParse<Parse<O>> {
 						.parse();
 			}
 
-			State() {
-				this.path = new LuxemArrayPath(null);
-			}
-
-			public void handleEvent(final LuxemEvent e) {
-				stream = stream.push(e, path.toString());
-				path = path.push(e);
+			public void handleEvent(final Pair<Event, Object> pair) {
+				stream = stream.push(pair.first, pair.second);
 			}
 		}
 		final State state = new State();
-		return concatNull(stream).map(event -> {
-			if (event == null) {
+		return concatNull(stream).map(pair -> {
+			if (pair == null) {
 				if (state.stream == null)
 					return null;
 				else
@@ -111,7 +114,7 @@ public class Parse<O> extends BaseParse<Parse<O>> {
 			}
 			if (state.stream == null)
 				state.createStream();
-			state.handleEvent(event);
+			state.handleEvent(pair);
 			if (state.stream.ended()) {
 				O result = state.stream.finish();
 				state.stream = null;
@@ -120,5 +123,4 @@ public class Parse<O> extends BaseParse<Parse<O>> {
 				return null;
 		}).filter(o -> o != null);
 	}
-
 }

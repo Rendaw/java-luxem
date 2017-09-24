@@ -58,5 +58,15 @@ public class RawWriterTest {
 		);
 	}
 
+	@Test
+	public void testPrimitiveEscaping() {
+		check("\"a\\\\b\\\"\",", rawWriter -> rawWriter.primitive("a\\b\""));
+	}
+
+	@Test
+	public void testPrimitiveWhitespaceEscaping() {
+		check("\"a\\tb\\n\",", rawWriter -> rawWriter.primitive("a\tb\n"));
+	}
+
 	// TODO test escaping
 }

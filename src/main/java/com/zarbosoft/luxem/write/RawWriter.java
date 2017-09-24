@@ -111,6 +111,7 @@ public class RawWriter {
 
 	private boolean isAmbiguous(final byte b) {
 		switch (b) {
+			case '"':
 			case ':':
 			case ',':
 			case '[':
@@ -120,6 +121,7 @@ public class RawWriter {
 			case '(':
 			case ')':
 			case ' ':
+			case '\\':
 			case '\n':
 			case '\t':
 			case '\r':
@@ -194,7 +196,11 @@ public class RawWriter {
 		return this;
 	}
 
-	private static final Map<Byte, Byte> quotedKeyEscapes = new ImmutableMap.Builder<Byte, Byte>()
+	private static ImmutableMap.Builder<Byte, Byte> escapeMap() {
+		return new ImmutableMap.Builder<Byte, Byte>().put((byte) '\\', (byte) '\\');
+	}
+
+	private static final Map<Byte, Byte> quotedKeyEscapes = escapeMap()
 			.put((byte) '"', (byte) '"')
 			.put((byte) '\n', (byte) 'n')
 			.put((byte) '\t', (byte) 't')
@@ -243,7 +249,7 @@ public class RawWriter {
 		stream.write(bytes, lastEscape, bytes.length - lastEscape);
 	}
 
-	private static final Map<Byte, Byte> typeEscapes = new ImmutableMap.Builder<Byte, Byte>()
+	private static final Map<Byte, Byte> typeEscapes = escapeMap()
 			.put((byte) ')', (byte) ')')
 			.put((byte) '\n', (byte) 'n')
 			.put((byte) '\t', (byte) 't')
@@ -307,7 +313,7 @@ public class RawWriter {
 		return this;
 	}
 
-	private static final Map<Byte, Byte> quotedPrimitiveEscapes = new ImmutableMap.Builder<Byte, Byte>()
+	private static final Map<Byte, Byte> quotedPrimitiveEscapes = escapeMap()
 			.put((byte) '"', (byte) '"')
 			.put((byte) '\n', (byte) 'n')
 			.put((byte) '\t', (byte) 't')

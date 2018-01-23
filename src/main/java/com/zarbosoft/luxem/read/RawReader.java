@@ -16,6 +16,9 @@ import java.util.stream.Stream;
 
 import static com.zarbosoft.rendaw.common.Common.drain;
 
+/**
+ * Luxem lexer.  Calls the various `eat*` methods when tokens are found.
+ */
 public class RawReader {
 	@FunctionalInterface
 	public interface VoidConsumer {

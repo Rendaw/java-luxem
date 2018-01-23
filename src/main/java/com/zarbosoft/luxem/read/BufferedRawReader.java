@@ -2,6 +2,9 @@ package com.zarbosoft.luxem.read;
 
 import java.io.ByteArrayOutputStream;
 
+/**
+ * Extension for RawReader that buffers primitives, keys, and types.
+ */
 public class BufferedRawReader extends RawReader {
 	@FunctionalInterface
 	public interface BytesConsumer {

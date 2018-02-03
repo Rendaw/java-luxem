@@ -17,14 +17,6 @@ public class TreeReader {
 
 		public abstract void value(Object value);
 
-		public void record() {
-			stack.addLast(new RecordState());
-		}
-
-		public void array() {
-			stack.addLast(new ArrayState());
-		}
-
 		public abstract void type(String value);
 
 		public abstract Object get();
@@ -97,7 +89,8 @@ public class TreeReader {
 			final State done = stack.pollLast();
 			stack.peekLast().value(done.get());
 		};
-		RawReader.stream(reader, stream);
+		RawReader.stream(reader, stream).forEach(b -> {
+		});
 		return (List) top.get();
 	}
 }
